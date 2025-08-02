@@ -26,6 +26,24 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    // Hardcoded admin credentials
+    if (email === 'admin@quickdesk.com' && password === 'admin123') {
+      const adminUser = {
+        _id: 'admin_hardcoded',
+        name: 'System Administrator',
+        email: 'admin@quickdesk.com',
+        role: 'admin',
+        language: 'en',
+        categoryInInterest: 'all',
+        profileImage: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      const token = jwt.sign({ id: 'admin_hardcoded', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ token, user: adminUser });
+    }
+    
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password);

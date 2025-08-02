@@ -128,6 +128,22 @@ class ApiClient {
   dashboard = {
     adminOverview: () => this.request<any>('/dashboard/admin/overview'),
     userStats: () => this.request<any>('/dashboard/user/stats'),
+    adminStats: () => this.request<any>('/admin/dashboard/stats'),
+    databaseStats: () => this.request<any>('/admin/database/stats'),
+    systemHealth: () => this.request<any>('/admin/system/health'),
+    agentOverview: () => this.request<any>('/dashboard/agent/overview'),
+    getTickets: (params?: { page?: number; limit?: number; status?: string; category?: string; search?: string; sortBy?: string }) => {
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      return this.request<{ tickets: any[]; totalPages: number; currentPage: number; total: number }>(`/dashboard/tickets${query}`);
+    },
   };
 
   // Admin endpoints
@@ -167,15 +183,45 @@ class ApiClient {
         return this.request<{ users: any[]; pagination: any }>(`/admin/users${query}`);
       },
 
+      create: (data: { name: string; email: string; password: string; role?: string; language?: string; categoryInInterest?: string[] }) =>
+        this.request<{ user: any }>('/admin/users', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: { name?: string; email?: string; role?: string; language?: string; categoryInInterest?: string[] }) =>
+        this.request<{ user: any }>(`/admin/users/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
       updateRole: (id: string, role: string) =>
         this.request<any>(`/admin/users/${id}/role`, {
           method: 'PUT',
           body: JSON.stringify({ role }),
         }),
 
+      resetPassword: (id: string, newPassword: string) =>
+        this.request<{ message: string }>(`/admin/users/${id}/reset-password`, {
+          method: 'PUT',
+          body: JSON.stringify({ newPassword }),
+        }),
+
       delete: (id: string) =>
         this.request<{ message: string }>(`/admin/users/${id}`, {
           method: 'DELETE',
+        }),
+
+      bulkDelete: (userIds: string[]) =>
+        this.request<{ message: string }>('/admin/users/bulk', {
+          method: 'DELETE',
+          body: JSON.stringify({ userIds }),
+        }),
+
+      bulkUpdateRoles: (userIds: string[], newRole: string) =>
+        this.request<{ message: string }>('/admin/users/bulk/roles', {
+          method: 'PUT',
+          body: JSON.stringify({ userIds, newRole }),
         }),
     },
 
@@ -198,6 +244,42 @@ class ApiClient {
           method: 'DELETE',
         }),
     },
+  };
+
+  // Tickets endpoints
+  tickets = {
+    getById: (id: string) => this.request<any>(`/tickets/${id}`),
+
+    create: (data: { title: string; description: string; category?: string; priority?: string; tags?: string[] }) =>
+      this.request<any>('/tickets', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: string, data: { status?: string; assignedTo?: string; title?: string; description?: string; category?: string }) =>
+      this.request<any>(`/tickets/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: string) =>
+      this.request<{ message: string }>(`/tickets/${id}`, {
+        method: 'DELETE',
+      }),
+
+    addComment: (id: string, content: string, isInternal?: boolean) =>
+      this.request<any>(`/tickets/${id}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content, isInternal }),
+      }),
+
+    assign: (id: string, agentId?: string) =>
+      this.request<any>(`/tickets/${id}/assign`, {
+        method: 'PATCH',
+        body: JSON.stringify({ agentId }),
+      }),
+
+    getAgents: () => this.request<any[]>('/tickets/agents'),
   };
 }
 

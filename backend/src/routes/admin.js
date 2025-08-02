@@ -256,4 +256,24 @@ router.get('/questions', authMiddleware, roleMiddleware('admin'), adminControlle
  */
 router.delete('/questions/:id', authMiddleware, roleMiddleware('admin'), adminController.deleteQuestion);
 
-module.exports = router; 
+// Advanced User Management
+router.post('/users', authMiddleware, roleMiddleware('admin'), adminController.createUser);
+router.put('/users/:id', authMiddleware, roleMiddleware('admin'), adminController.updateUser);
+router.put('/users/:id/reset-password', authMiddleware, roleMiddleware('admin'), adminController.resetUserPassword);
+
+// Dashboard & Analytics
+router.get('/dashboard/stats', authMiddleware, roleMiddleware('admin'), adminController.getDashboardStats);
+
+// Database Operations
+router.get('/database/stats', authMiddleware, roleMiddleware('admin'), adminController.getDatabaseStats);
+router.delete('/database/clear/:collectionName', authMiddleware, roleMiddleware('admin'), adminController.clearCollection);
+router.get('/database/export/:type', authMiddleware, roleMiddleware('admin'), adminController.exportData);
+
+// System Health
+router.get('/system/health', authMiddleware, roleMiddleware('admin'), adminController.systemHealth);
+
+// Bulk Operations
+router.delete('/users/bulk', authMiddleware, roleMiddleware('admin'), adminController.bulkDeleteUsers);
+router.put('/users/bulk/roles', authMiddleware, roleMiddleware('admin'), adminController.bulkChangeUserRoles);
+
+module.exports = router;

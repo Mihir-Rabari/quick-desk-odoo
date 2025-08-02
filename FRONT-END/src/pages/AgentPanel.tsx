@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TicketCard from "@/components/cards/TicketCard";
 import Navbar from "@/components/layout/Navbar";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 import { 
   Search, 
   Filter, 
@@ -18,65 +20,55 @@ import {
   TrendingUp,
   Users,
   Target,
-  Timer
+  Timer,
+  Loader2
 } from "lucide-react";
 
-// Mock data for development
-const mockStats = {
-  openTickets: 12,
-  resolvedToday: 5,
-  avgResponseTime: '2.5h',
-  satisfaction: '94%'
-};
-
-const mockQuestions = [
-  {
-    id: '1',
-    title: 'Unable to login to account',
-    description: 'I am having trouble logging into my account. It says invalid credentials.',
-    author: { name: 'John Doe', email: 'john@example.com' },
-    priority: 'high',
-    status: 'open',
-    tags: ['login', 'authentication'],
-    upvotes: 3,
-    answers: 1,
-    assignedTo: null,
-    createdAt: new Date().toISOString()
-  }
-];
 
 export default function AgentPanel() {
   const [user, setUser] = useState<any>(null);
   const [tickets, setTickets] = useState([]);
-  const [stats, setStats] = useState(mockStats);
+  const [stats, setStats] = useState({
+    assignedTickets: 0,
+    resolvedToday: 0,
+    pendingTickets: 0,
+    totalResolved: 0
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
-  const [filteredQuestions, setFilteredQuestions] = useState(mockQuestions);
+  const [filteredTickets, setFilteredTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const fetchAgentData = async () => {
+    setLoading(true);
     try {
-      const ticketsResponse = await fetch(`http://localhost:5000/dashboard/agent/tickets`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const statsResponse = await fetch(`http://localhost:5000/dashboard/agent/stats`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const [agentOverview, ticketsData] = await Promise.all([
+        api.dashboard.agentOverview(),
+        api.dashboard.getTickets({ limit: 50 })
+      ]);
+
+      setStats({
+        assignedTickets: agentOverview.assignedTickets || 0,
+        resolvedToday: agentOverview.resolvedToday || 0,
+        pendingTickets: agentOverview.pendingTickets || 0,
+        totalResolved: agentOverview.totalResolved || 0
       });
 
-      const ticketsData = await ticketsResponse.json();
-      const statsData = await statsResponse.json();
-
-      setTickets(ticketsData || []);
-      setStats(statsData || {});
+      setTickets(ticketsData.tickets || []);
     } catch (error) {
       console.error('Failed to fetch agent data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch agent data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,35 +94,107 @@ export default function AgentPanel() {
     }
   }, [user]);
 
+  useEffect(() => {
+    let filtered = tickets;
+
+    // Filter by tab
+    if (activeTab === 'assigned') {
+      filtered = filtered.filter(ticket => ticket.assignedTo && (ticket.assignedTo.email === user.email || ticket.assignedTo === user.email));
+    } else if (activeTab === 'unassigned') {
+      filtered = filtered.filter(ticket => !ticket.assignedTo);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(ticket =>
+        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(ticket => ticket.status === statusFilter);
+    }
+
+    // Filter by priority
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(ticket => ticket.priority === priorityFilter);
+    }
+
+    setFilteredTickets(filtered);
+  }, [tickets, activeTab, searchQuery, statusFilter, priorityFilter, user]);
+
   const handleAssignToSelf = async (ticketId: string) => {
     try {
-      await fetch('http://localhost:5000/tickets/assign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ ticketId })
+      await api.tickets.assign(ticketId, user._id);
+      await fetchAgentData();
+      toast({
+        title: "Success",
+        description: "Ticket assigned to you successfully.",
       });
-      fetchAgentData();
     } catch (error) {
       console.error('Failed to assign ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign ticket.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleUpdateStatus = async (ticketId: string, newStatus: string) => {
     try {
-      await fetch(`http://localhost:5000/tickets/${ticketId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ status: newStatus })
+      await api.tickets.update(ticketId, { status: newStatus });
+      await fetchAgentData();
+      toast({
+        title: "Success",
+        description: `Ticket status updated to ${newStatus}.`,
       });
-      fetchAgentData();
     } catch (error) {
       console.error('Failed to update ticket status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update ticket status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCloseTicket = async (ticketId: string) => {
+    try {
+      await api.tickets.update(ticketId, { status: 'closed' });
+      await fetchAgentData();
+      toast({
+        title: "Success",
+        description: "Ticket has been closed successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to close ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close ticket.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleResolveTicket = async (ticketId: string) => {
+    try {
+      await api.tickets.update(ticketId, { status: 'resolved' });
+      await fetchAgentData();
+      toast({
+        title: "Success",
+        description: "Ticket has been resolved successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to resolve ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to resolve ticket.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -176,7 +240,7 @@ export default function AgentPanel() {
                 <AlertCircle className="w-5 h-5 text-primary" />
                 <div>
                   <p className="text-sm text-muted-foreground">Open Tickets</p>
-                  <p className="text-2xl font-bold">{mockStats.openTickets}</p>
+                  <p className="text-2xl font-bold">{stats.pendingTickets}</p>
                 </div>
               </div>
             </CardContent>
@@ -188,7 +252,7 @@ export default function AgentPanel() {
                 <CheckCircle className="w-5 h-5 text-success" />
                 <div>
                   <p className="text-sm text-muted-foreground">Resolved Today</p>
-                  <p className="text-2xl font-bold">{mockStats.resolvedToday}</p>
+                  <p className="text-2xl font-bold">{stats.resolvedToday}</p>
                 </div>
               </div>
             </CardContent>
@@ -199,8 +263,8 @@ export default function AgentPanel() {
               <div className="flex items-center space-x-2">
                 <Timer className="w-5 h-5 text-warning" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Avg Response</p>
-                  <p className="text-2xl font-bold">{mockStats.avgResponseTime}</p>
+                  <p className="text-sm text-muted-foreground">Assigned</p>
+                  <p className="text-2xl font-bold">{stats.assignedTickets}</p>
                 </div>
               </div>
             </CardContent>
@@ -211,8 +275,8 @@ export default function AgentPanel() {
               <div className="flex items-center space-x-2">
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Satisfaction</p>
-                  <p className="text-2xl font-bold">{mockStats.satisfaction}</p>
+                  <p className="text-sm text-muted-foreground">Total Resolved</p>
+                  <p className="text-2xl font-bold">{stats.totalResolved}</p>
                 </div>
               </div>
             </CardContent>
@@ -277,8 +341,13 @@ export default function AgentPanel() {
               </TabsList>
               
               <TabsContent value={activeTab} className="space-y-4">
-                {filteredQuestions.length > 0 ? (
-                  filteredQuestions.map((question) => (
+                {loading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                    <p>Loading tickets...</p>
+                  </div>
+                ) : filteredTickets.length > 0 ? (
+                  filteredTickets.map((question) => (
                     <div key={question.id} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center space-x-2">
@@ -296,15 +365,15 @@ export default function AgentPanel() {
                             <Button 
                               size="sm"
                               variant="outline"
-                              onClick={() => handleAssignToSelf(question.id)}
+                              onClick={() => handleAssignToSelf(question._id)}
                             >
                               Assign to Me
                             </Button>
                           )}
-                          {question.assignedTo === user.email && (
+                          {(question.assignedTo?.email === user.email || question.assignedTo === user.email) && (
                             <Select 
                               value={question.status} 
-                              onValueChange={(value) => handleUpdateStatus(question.id, value)}
+                              onValueChange={(value) => handleUpdateStatus(question._id, value)}
                             >
                               <SelectTrigger className="w-32 h-8">
                                 <SelectValue />

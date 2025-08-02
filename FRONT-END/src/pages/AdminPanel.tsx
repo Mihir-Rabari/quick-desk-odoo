@@ -13,7 +13,13 @@ import {
   Shield,
   TrendingUp,
   Calendar,
-  Activity
+  Activity,
+  Database,
+  Server,
+  Download,
+  Trash2,
+  AlertTriangle,
+  HardDrive
 } from "lucide-react";
 import UsersManagement from "@/components/admin/UsersManagement";
 import QuestionsManagement from "@/components/admin/QuestionsManagement";
@@ -21,6 +27,8 @@ import CategoriesManagement from "@/components/admin/CategoriesManagement";
 import UpgradeRequests from "@/components/admin/UpgradeRequests";
 import AdminStats from "@/components/admin/AdminStats";
 import { api } from "@/lib/api";
+import SystemManagement from '@/components/admin/SystemManagement';
+import DatabaseManagement from '@/components/admin/DatabaseManagement';
 
 export default function AdminPanel() {
   const [user, setUser] = useState<any>(null);
@@ -56,8 +64,15 @@ export default function AdminPanel() {
   useEffect(() => {
     const fetchOverviewStats = async () => {
       try {
-        const data = await api.dashboard.adminOverview();
-        setOverviewStats(data);
+        const data = await api.dashboard.adminStats();
+        setOverviewStats({
+          totalUsers: data.stats.totalUsers,
+          totalQuestions: data.stats.totalQuestions,
+          totalAnswers: data.stats.totalTickets, // Using tickets as answers for now
+          activeToday: data.stats.totalAgents,
+          pendingUpgrades: data.stats.pendingUpgradeRequests,
+          avgResponseTime: '2h' // Placeholder
+        });
       } catch (err) {
         // Keep default values on error
         console.error('Failed to fetch overview stats:', err);
@@ -91,7 +106,7 @@ export default function AdminPanel() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-muted p-1 rounded-lg">
+          <TabsList className="grid w-full grid-cols-8 bg-muted p-1 rounded-lg">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -104,13 +119,21 @@ export default function AdminPanel() {
               <MessageCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Questions</span>
             </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center space-x-2">
+              <Tags className="w-4 h-4" />
+              <span className="hidden sm:inline">Categories</span>
+            </TabsTrigger>
             <TabsTrigger value="upgrades" className="flex items-center space-x-2">
               <UserCheck className="w-4 h-4" />
               <span className="hidden sm:inline">Upgrades</span>
             </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center space-x-2">
-              <Tags className="w-4 h-4" />
-              <span className="hidden sm:inline">Categories</span>
+            <TabsTrigger value="database" className="flex items-center space-x-2">
+              <Database className="w-4 h-4" />
+              <span className="hidden sm:inline">Database</span>
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center space-x-2">
+              <Server className="w-4 h-4" />
+              <span className="hidden sm:inline">System</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center space-x-2">
               <Settings className="w-4 h-4" />
@@ -192,6 +215,16 @@ export default function AdminPanel() {
           {/* Categories Tab */}
           <TabsContent value="categories" className="animate-fade-in">
             <CategoriesManagement />
+          </TabsContent>
+
+          {/* Database Tab */}
+          <TabsContent value="database" className="animate-fade-in">
+            <DatabaseManagement />
+          </TabsContent>
+
+          {/* System Tab */}
+          <TabsContent value="system" className="animate-fade-in">
+            <SystemManagement />
           </TabsContent>
 
           {/* Settings Tab */}

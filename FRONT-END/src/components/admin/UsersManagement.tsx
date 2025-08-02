@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -20,7 +22,25 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Search, 
   Filter, 
@@ -30,116 +50,131 @@ import {
   MoreHorizontal,
   UserPlus,
   Mail,
-  Calendar
+  Calendar,
+  Key,
+  Users,
+  Loader2,
+  Download,
+  Upload
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 
-const mockUsers = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: 'user',
-    status: 'active',
-    joinDate: '2024-01-15',
-    questionsCount: 12,
-    answersCount: 8,
-    reputation: 1240
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    role: 'agent',
-    status: 'active',
-    joinDate: '2024-01-10',
-    questionsCount: 5,
-    answersCount: 45,
-    reputation: 3200
-  },
-  {
-    id: '3',
-    name: 'Bob Johnson',
-    email: 'bob@example.com',
-    role: 'admin',
-    status: 'active',
-    joinDate: '2024-01-01',
-    questionsCount: 2,
-    answersCount: 120,
-    reputation: 8900
-  },
-  {
-    id: '4',
-    name: 'Alice Wilson',
-    email: 'alice@example.com',
-    role: 'user',
-    status: 'inactive',
-    joinDate: '2024-01-12',
-    questionsCount: 3,
-    answersCount: 1,
-    reputation: 450
-  }
-];
 
 export default function UsersManagement() {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [filteredUsers, setFilteredUsers] = useState(mockUsers);
-  
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const { toast } = useToast();
 
   useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        const { users } = await api.admin.users.list();
+        setUsers(users);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch users.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
     let filtered = users;
-    
+
     if (searchQuery) {
-      filtered = filtered.filter(user => 
+      filtered = filtered.filter((user) =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      filtered = filtered.filter((user) => user.role === roleFilter);
     }
-    
+
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => user.status === statusFilter);
+      filtered = filtered.filter((user) => user.status === statusFilter);
     }
-    
+
     setFilteredUsers(filtered);
   }, [users, searchQuery, roleFilter, statusFilter]);
 
-  const handleRoleChange = (userId: string, newRole: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, role: newRole } : user
-    ));
-    
-    toast({
-      title: "Role updated",
-      description: `User role has been updated to ${newRole}.`,
-    });
+  async function handleResetPassword(userId: string) {
+    try {
+      await api.admin.users.resetPassword(userId, "newPassword123");
+      toast({
+        title: "Password Reset",
+        description: "Password has been reset successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reset password.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      await api.admin.users.updateRole(userId, newRole);
+      setUsers(prev => prev.map(user =>
+        user._id === userId ? { ...user, role: newRole } : user
+      ));
+
+      toast({
+        title: "Role updated",
+        description: `User role has been updated to ${newRole}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update role.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleStatusChange = (userId: string, newStatus: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, status: newStatus } : user
+    setUsers(prev => prev.map(user =>
+      user._id === userId ? { ...user, status: newStatus } : user
     ));
-    
+
     toast({
       title: "Status updated",
       description: `User status has been updated to ${newStatus}.`,
     });
   };
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(prev => prev.filter(user => user.id !== userId));
-    
-    toast({
-      title: "User deleted",
-      description: "User has been successfully deleted.",
-    });
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await api.admin.users.delete(userId);
+      setUsers(prev => prev.filter(user => user._id !== userId));
+
+      toast({
+        title: "User deleted",
+        description: "User has been successfully deleted.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete user.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getRoleBadgeClass = (role: string) => {
@@ -157,6 +192,17 @@ export default function UsersManagement() {
     return status === 'active' ? 'badge-success' : 'bg-gray-100 text-gray-700';
   };
 
+  if (loading) {
+    return (
+      <Card className="card-elegant">
+        <CardContent className="p-8 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading users...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="card-elegant">
       <CardHeader>
@@ -168,7 +214,7 @@ export default function UsersManagement() {
           Manage user accounts, roles, and permissions.
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -181,7 +227,7 @@ export default function UsersManagement() {
               className="pl-10 input-elegant"
             />
           </div>
-          
+
           <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Role" />
@@ -193,7 +239,7 @@ export default function UsersManagement() {
               <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Status" />
@@ -213,17 +259,13 @@ export default function UsersManagement() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Questions</TableHead>
-                <TableHead>Answers</TableHead>
-                <TableHead>Reputation</TableHead>
-                <TableHead>Joined</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => (
-                <TableRow key={user.id} className="hover:bg-muted/50">
+                <TableRow key={user._id} className="hover:bg-muted/50">
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar className="w-8 h-8">
@@ -239,9 +281,9 @@ export default function UsersManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select 
-                      value={user.role} 
-                      onValueChange={(value) => handleRoleChange(user.id, value)}
+                    <Select
+                      value={user.role}
+                      onValueChange={(value) => handleRoleChange(user._id, value)}
                     >
                       <SelectTrigger className="w-24 h-8">
                         <Badge className={`text-xs ${getRoleBadgeClass(user.role)}`}>
@@ -255,36 +297,22 @@ export default function UsersManagement() {
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell>
-                    <Select 
-                      value={user.status} 
-                      onValueChange={(value) => handleStatusChange(user.id, value)}
-                    >
-                      <SelectTrigger className="w-20 h-8">
-                        <Badge className={`text-xs ${getStatusBadgeClass(user.status)}`}>
-                          {user.status}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border border-border">
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>{user.questionsCount}</TableCell>
-                  <TableCell>{user.answersCount}</TableCell>
-                  <TableCell className="font-medium">{user.reputation}</TableCell>
-                  <TableCell>{new Date(user.joinDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                        <Edit className="w-3 h-3" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleResetPassword(user._id)}
+                      >
+                        <Key className="w-3 h-3" />
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => handleDeleteUser(user._id)}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
