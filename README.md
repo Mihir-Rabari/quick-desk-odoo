@@ -44,15 +44,20 @@ QuickDesk is a next-generation, AI-enhanced help desk module for Odoo, deliverin
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack (Backend & System)
 
-* **Core:** Odoo 16+, Python 3.10+, PostgreSQL 14+
-* **Containerization:** Docker, Docker Compose, Kubernetes Helm
-* **Messaging & Jobs:** Redis, Celery
-* **Optional Frontend:** React 18+, Vite, Tailwind CSS, shadcn/ui, Framer Motion
-* **API Layer:** Apollo GraphQL Server, Flask Blueprint REST
-* **CI/CD:** GitHub Actions
-* **Monitoring:** Prometheus, Grafana, ELK Stack
+| Layer      | Technology               |
+| ---------- | ------------------------ |
+| Runtime    | Node.js + Express        |
+| Database   | MongoDB (via Mongoose)   |
+| Auth       | JWT                      |
+| Realtime   | Socket.IO                |
+| Email      | Nodemailer               |
+| Testing    | Jest + Supertest         |
+| Deployment | Docker, Docker Compose   |
+| Cache/Jobs | Redis                    |
+| Monitoring | Prometheus, Grafana, ELK |
+| Frontend   | React 18+, Tailwind CSS, Framer Motion | 
 
 ---
 
@@ -60,8 +65,8 @@ QuickDesk is a next-generation, AI-enhanced help desk module for Odoo, deliverin
 
 ```plaintext
 ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  End Users   │      │  Support     │      │  Admins      │
-│  (Web/Email) │      │  Agents      │      │  Odoo UI     │
+│  End Users   │      │  Support     │      │   Admins     │
+│ (Web/Email)  │      │   Agents     │      │  Odoo Panel  │
 └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
        │                     │                     │
        ▼                     ▼                     ▼
@@ -118,15 +123,15 @@ quick-desk-odoo/
 
 ---
 
-## ✨ Features
+## 🔧 Features
 
-* **AI Ticket Routing:** ML-driven assignment recommendations
-* **Ticket Lifecycle:** Open → In Progress → Resolved → Closed
-* **SLA Management:** Real-time timers, automated escalations
-* **Notifications:** Email, SMS (Twilio), in-app
-* **Analytics:** Custom dashboards, CSV/PDF exports
-* **Integrations:** Slack, MS Teams, Zapier webhooks
-* **Customization:** Odoo Studio & code overrides
+- **Role-based System:** User, Agent, Admin workflows  
+- **Admin Panel:** Manage users, tickets, categories, and approvals  
+- **Ticketing System:** With voting, answers, filtering, and Q&A  
+- **Realtime Updates:** Via Socket.IO for tickets and responses  
+- **Email Alerts:** For role changes, ticket updates, etc.  
+- **Advanced Search & Filter:** On tickets and Q&A  
+- **Modular Codebase:** Easy to extend or integrate with existing systems  
 
 ---
 
